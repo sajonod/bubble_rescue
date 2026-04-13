@@ -78,3 +78,27 @@
 
 ## Completed Tasks
 (None yet)
+
+## Phase 8: Audio Integration
+- [x] Download pop sound effect from Pixabay
+- [x] Download chime/combo sound from Pixabay
+- [x] Download background music from Pixabay
+- [x] Integrate expo-audio for playback
+- [ ] Connect audio to game events (pop, combo, danger)
+- [x] Add audio toggle in settings
+
+## Phase 9: Animated Particle Effects
+- [x] Implement Reanimated 4 particle animations
+- [x] Add pop sparkle animation
+- [x] Add ripple wave animation
+- [x] Add creature exit trail animation
+- [ ] Optimize performance for 60fps
+
+## Phase 10: Monetization
+- [ ] Integrate Google Mobile Ads SDK
+- [x] Implement rewarded ad for revive feature
+- [x] Implement interstitial ads (every 3-4 games)
+- [ ] Integrate React Native IAP
+- [x] Add "Remove Ads" in-app purchase
+- [x] Add cosmetic bubble skin purchases
+- [x] Add purchase UI and store screen

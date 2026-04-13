@@ -59,6 +59,14 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="store"
+        options={{
+          title: "Store",
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }
