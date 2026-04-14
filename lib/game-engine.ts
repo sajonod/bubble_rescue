@@ -3,6 +3,8 @@
  * Handles physics, bubble spawning, collision detection, and game state
  */
 
+import { getCommonCreatures } from "@/constants/creatures";
+
 export interface Bubble {
   id: string;
   x: number;
@@ -54,7 +56,7 @@ export class GameEngine {
   private bubbleIdCounter = 0;
   private unlockedCreatures: Set<CreatureType> = new Set();
 
-  constructor(screenWidth: number, screenHeight: number) {
+  constructor(screenWidth: number, screenHeight: number, unlockedCreatures?: Set<CreatureType>) {
     this.SCREEN_WIDTH = screenWidth;
     this.SCREEN_HEIGHT = screenHeight;
 
@@ -71,10 +73,15 @@ export class GameEngine {
       newCreatures: [],
     };
 
-    // Initialize with common creatures
-    this.unlockedCreatures.add("butterfly");
-    this.unlockedCreatures.add("bird");
-    this.unlockedCreatures.add("firefly");
+    // Initialize with common creatures or provided set
+    if (unlockedCreatures) {
+      this.unlockedCreatures = unlockedCreatures;
+    } else {
+      // Initialize with common creatures
+      getCommonCreatures().forEach(c => {
+        this.unlockedCreatures.add(c.id as CreatureType);
+      });
+    }
   }
 
   /**

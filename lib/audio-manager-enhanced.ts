@@ -118,6 +118,13 @@ export class AudioManagerEnhanced {
   }
 
   /**
+   * Alias for playErrorSound
+   */
+  async playDangerSound(): Promise<void> {
+    return this.playErrorSound();
+  }
+
+  /**
    * Play background music (looped)
    */
   async playBackgroundMusic(): Promise<void> {
