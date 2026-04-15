@@ -15,6 +15,7 @@ export default function GameScreen() {
   const [highScore, setHighScore] = useState(0);
   const [newCreatures, setNewCreatures] = useState<string[]>([]);
   const creatureCacheRef = useRef<Set<string>>(new Set());
+    const [gameSessionKey, setGameSessionKey] = useState(0);
 
   // Load high score and creatures on mount
   useFocusEffect(
@@ -81,6 +82,7 @@ export default function GameScreen() {
     setCombo(0);
     setMultiplier(1);
     setNewCreatures([]);
+        setGameSessionKey(prev => prev + 1);
   };
 
   const handleHome = () => {
@@ -127,7 +129,7 @@ export default function GameScreen() {
       )}
 
       {/* Game Canvas */}
-      <GameCanvas
+      <GameCanvas key={gameSessionKey}
         onGameOver={handleGameOver}
         onScoreUpdate={handleScoreUpdate}
         isPaused={gameOver}
