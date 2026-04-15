@@ -14,7 +14,7 @@ The app consists of the following core screens:
 4. **Collection Gallery** - Creature unlock gallery showing progress
 5. **Settings Screen** - Audio/haptics toggle, remove ads option
 
-## Primary Content & Functionality
+## Primary Content & Functionality   
 
 ### Home Screen
 - **Hero Title**: "Bubble Rescue" with soft glow effect

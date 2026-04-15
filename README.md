@@ -211,6 +211,4 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ by Manus AI**
-
 Made for iOS and Android with React Native

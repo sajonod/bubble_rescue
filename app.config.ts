@@ -6,6 +6,7 @@ import type { ExpoConfig } from "expo/config";
 // e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
 // Bundle ID can only contain letters, numbers, and dots
 // Android requires each dot-separated segment to start with a letter
+
 const rawBundleId = "space.manus.bubble.rescue.t20260413132505";
 const bundleId =
   rawBundleId
@@ -83,6 +84,11 @@ const config: ExpoConfig = {
     bundler: "metro",
     output: "static",
     favicon: "./assets/images/favicon.png",
+  },
+  extra: {
+    eas: {
+      projectId: "d3ddc4be-6d82-4e38-bc37-f0f6888d7679"
+    }
   },
   plugins: [
     "expo-router",

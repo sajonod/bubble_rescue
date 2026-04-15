@@ -4,14 +4,21 @@ import {
   Text,
   Dimensions,
   Platform,
+  StyleSheet,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { GameEngine, type Bubble } from "@/lib/game-engine";
+import { GameEngine, type Bubble, type FlyingCreature } from "@/lib/game-engine";
 import { ParticleSystem } from "@/lib/particle-system";
 import { AudioManagerEnhanced } from "@/lib/audio-manager-enhanced";
 import { AnimatedParticles, type AnimatedParticle } from "@/components/animated-particles";
 import { getCreatureEmoji } from "@/constants/creatures";
 import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolateColor
+} from "react-native-reanimated";
 
 interface GameCanvasProps {
   onGameOver: (score: number, newCreatures: string[]) => void;
@@ -32,15 +39,28 @@ export function GameCanvas({
   const lastTimeRef = useRef<number>(0);
   const [screenDimensions, setScreenDimensions] = useState({
     width: Dimensions.get("window").width,
-    height: Dimensions.get("window").height * 0.85, // Leave room for UI
+    height: Dimensions.get("window").height * 0.85,
   });
+
+  const [gameState, setGameState] = useState<{
+    bubbles: Bubble[];
+    flyingCreatures: FlyingCreature[];
+    shakeIntensity: number;
+  }>({
+    bubbles: [],
+    flyingCreatures: [],
+    shakeIntensity: 0,
+  });
+
   const [particles, setParticles] = useState<AnimatedParticle[]>([]);
-  const particleMapRef = useRef<Map<string, AnimatedParticle>>(new Map());
+
+  // Animation values for screen shake
+  const shakeX = useSharedValue(0);
+  const shakeY = useSharedValue(0);
 
   // Initialize game engine and particle system
   useEffect(() => {
     const initializeGame = async () => {
-      // Load unlocked creatures from storage
       let unlockedCreatures: Set<string> | undefined;
       try {
         const saved = await AsyncStorage.getItem("unlockedCreatures");
@@ -58,7 +78,6 @@ export function GameCanvas({
       );
       particleSystemRef.current = new ParticleSystem();
       
-      // Initialize audio manager
       const audioManager = AudioManagerEnhanced.getInstance();
       audioManagerRef.current = audioManager;
       audioManager.initialize().catch(console.error);
@@ -75,7 +94,7 @@ export function GameCanvas({
 
     const gameLoop = () => {
       const now = Date.now();
-      const deltaTime = Math.min(now - lastTimeRef.current, 16); // Cap at 60fps
+      const deltaTime = Math.min(now - lastTimeRef.current, 32);
       lastTimeRef.current = now;
 
       const engine = gameEngineRef.current!;
@@ -85,6 +104,22 @@ export function GameCanvas({
       particleSystem.update(deltaTime);
 
       const state = engine.getState();
+
+      // Update Local State
+      setGameState({
+        bubbles: [...state.bubbles],
+        flyingCreatures: [...state.flyingCreatures],
+        shakeIntensity: state.shakeIntensity,
+      });
+
+      // Handle screen shake
+      if (state.shakeIntensity > 0) {
+        shakeX.value = (Math.random() - 0.5) * state.shakeIntensity * 2;
+        shakeY.value = (Math.random() - 0.5) * state.shakeIntensity * 2;
+      } else {
+        shakeX.value = 0;
+        shakeY.value = 0;
+      }
 
       // Update UI
       onScoreUpdate(state.score, state.combo, state.comboMultiplier);
@@ -107,7 +142,6 @@ export function GameCanvas({
         return;
       }
 
-      // Request next frame
       animationFrameRef.current = requestAnimationFrame(gameLoop);
     };
 
@@ -120,7 +154,6 @@ export function GameCanvas({
     };
   }, [isPaused, onGameOver, onScoreUpdate]);
 
-  // Handle tap/touch
   const handleTap = useCallback(
     (event: any) => {
       if (!gameEngineRef.current || isPaused) return;
@@ -137,37 +170,24 @@ export function GameCanvas({
         const audioManager = audioManagerRef.current!;
 
         if (success) {
-          // Play pop sound
           audioManager.playPopSound().catch(console.error);
-
-          // Create pop effect
           particleSystem.createPopEffect(bubble.x, bubble.y);
           particleSystem.createRippleEffect(bubble.x, bubble.y);
 
-          // Haptic feedback for successful pop
           if (Platform.OS !== "web") {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }
 
-          // Combo milestone haptics and sounds
           const state = gameEngineRef.current.getState();
-          if (
-            state.combo === 3 ||
-            state.combo === 6 ||
-            state.combo === 10 ||
-            state.combo % 5 === 0
-          ) {
+          if (state.combo % 5 === 0 || state.combo === 3) {
             if (Platform.OS !== "web") {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             }
             audioManager.playComboSound().catch(console.error);
           }
         } else {
-          // Danger bubble or game over - haptic alert and sound
           if (Platform.OS !== "web") {
-            Haptics.notificationAsync(
-              Haptics.NotificationFeedbackType.Error
-            );
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
           audioManager.playDangerSound?.().catch(console.error);
         }
@@ -176,67 +196,62 @@ export function GameCanvas({
     [isPaused]
   );
 
-  // Render bubbles
-  const renderBubbles = () => {
-    const engine = gameEngineRef.current;
-    if (!engine) return null;
-
-    const state = engine.getState();
-    return state.bubbles
-      .filter((b) => !b.isPopped)
-      .map((bubble) => (
-        <BubbleView key={bubble.id} bubble={bubble} />
-      ));
-  };
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: shakeX.value },
+      { translateY: shakeY.value },
+    ],
+  }));
 
   return (
     <View
-      ref={canvasRef}
-      onStartShouldSetResponder={() => true}
-      onResponderGrant={handleTap}
       style={{
         width: screenDimensions.width,
         height: screenDimensions.height,
-        backgroundColor: "#F5D5E8",
+        backgroundColor: "#E0F2F1", // Light teal pastel
         position: "relative",
         overflow: "hidden",
       }}
     >
-      {renderBubbles()}
-      <AnimatedParticles
-        particles={particles}
-        onParticleComplete={(id) => {
-          setParticles((prev) => prev.filter((p) => p.id !== id));
-        }}
-      />
+      <Animated.View
+        ref={canvasRef}
+        onStartShouldSetResponder={() => true}
+        onResponderGrant={handleTap}
+        style={[{ flex: 1 }, animatedContainerStyle]}
+      >
+        {/* Render Bubbles */}
+        {gameState.bubbles.map((bubble) => (
+          <BubbleView key={bubble.id} bubble={bubble} />
+        ))}
+
+        {/* Render Flying Creatures */}
+        {gameState.flyingCreatures.map((creature) => (
+          <CreatureView key={creature.id} creature={creature} />
+        ))}
+
+        <AnimatedParticles
+          particles={particles}
+          onParticleComplete={(id) => {
+            setParticles((prev) => prev.filter((p) => p.id !== id));
+          }}
+        />
+      </Animated.View>
     </View>
   );
 }
 
-interface BubbleViewProps {
-  bubble: Bubble;
-}
-
-function BubbleView({ bubble }: BubbleViewProps) {
-  const getBubbleColor = (type: string): string => {
-    const colorMap: Record<string, string> = {
-      normal: "rgba(255, 255, 255, 0.8)",
-      bonus: "rgba(173, 216, 230, 0.85)",
-      danger: "rgba(255, 100, 100, 0.85)",
-      timed: "rgba(255, 215, 0, 0.85)",
+function BubbleView({ bubble }: { bubble: Bubble }) {
+  const getBubbleStyles = (type: string) => {
+    const styles: Record<string, any> = {
+      normal: { bg: "rgba(255, 255, 255, 0.7)", border: "rgba(255, 255, 255, 0.9)" },
+      bonus: { bg: "rgba(187, 222, 251, 0.8)", border: "rgba(33, 150, 243, 0.9)" },
+      danger: { bg: "rgba(255, 205, 210, 0.8)", border: "rgba(244, 67, 54, 0.9)" },
+      timed: { bg: "rgba(255, 249, 196, 0.8)", border: "rgba(251, 192, 45, 0.9)" },
     };
-    return colorMap[type] || "rgba(255, 255, 255, 0.8)";
+    return styles[type] || styles.normal;
   };
 
-  const getBubbleBorderColor = (type: string): string => {
-    const colorMap: Record<string, string> = {
-      normal: "rgba(255, 255, 255, 0.95)",
-      bonus: "rgba(100, 180, 220, 0.95)",
-      danger: "rgba(255, 50, 50, 0.95)",
-      timed: "rgba(255, 200, 0, 0.95)",
-    };
-    return colorMap[type] || "rgba(255, 255, 255, 0.95)";
-  };
+  const styleConfig = getBubbleStyles(bubble.type);
 
   return (
     <View
@@ -247,27 +262,56 @@ function BubbleView({ bubble }: BubbleViewProps) {
         width: bubble.radius * 2,
         height: bubble.radius * 2,
         borderRadius: bubble.radius,
-        backgroundColor: getBubbleColor(bubble.type),
-        borderWidth: 3,
-        borderColor: getBubbleBorderColor(bubble.type),
+        backgroundColor: styleConfig.bg,
+        borderWidth: 2,
+        borderColor: styleConfig.border,
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.3,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
         shadowRadius: 4,
-        elevation: 8,
+        elevation: 5,
       }}
     >
-      <Text
-        style={{
-          fontSize: bubble.radius * 0.85,
-          textAlign: "center",
-          lineHeight: bubble.radius * 0.9,
-        }}
-      >
-        {getCreatureEmoji(bubble.creature as any)}
+      <Text style={{ fontSize: bubble.radius * 0.9 }}>
+        {getCreatureEmoji(bubble.creature)}
+      </Text>
+      {bubble.type === "timed" && (
+        <View style={styles.timerIndicator} />
+      )}
+    </View>
+  );
+}
+
+function CreatureView({ creature }: { creature: FlyingCreature }) {
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: creature.x - 20,
+        top: creature.y - 20,
+        opacity: creature.opacity,
+        transform: [
+          { scale: creature.scale },
+          { rotate: `${creature.rotation}deg` }
+        ],
+      }}
+    >
+      <Text style={{ fontSize: 32 }}>
+        {getCreatureEmoji(creature.creature)}
       </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  timerIndicator: {
+    position: "absolute",
+    bottom: -5,
+    width: "60%",
+    height: 4,
+    backgroundColor: "#FBC02D",
+    borderRadius: 2,
+  }
+});

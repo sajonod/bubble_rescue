@@ -28,11 +28,27 @@ export class AudioManagerEnhanced {
 
     try {
       if (Platform.OS !== "web") {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-      });
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          staysActiveInBackground: false,
+        });
       }
+
+      // Preload essential sounds
+      const soundsToLoad = {
+        pop: require("@/assets/sounds/pop.wav"),
+        pop2: require("@/assets/sounds/pop2.wav"),
+        pop3: require("@/assets/sounds/pop3.wav"),
+        combo: require("@/assets/sounds/combo.wav"),
+        danger: require("@/assets/sounds/danger.wav"),
+        background: require("@/assets/sounds/background.wav"),
+      };
+
+      for (const [key, source] of Object.entries(soundsToLoad)) {
+        await this.loadSound(key, source);
+      }
+
       this.initialized = true;
     } catch (error) {
       console.error("Failed to initialize audio:", error);
@@ -52,8 +68,10 @@ export class AudioManagerEnhanced {
    */
   async loadSound(key: string, source: any): Promise<void> {
     try {
-      const sound = new Audio.Sound();
-      await sound.loadAsync(source);
+      // Check if already loaded
+      if (this.soundPlayers.has(key)) return;
+
+      const { sound } = await Audio.Sound.createAsync(source);
       this.soundPlayers.set(key, { sound, isPlaying: false });
     } catch (error) {
       console.error(`Failed to load sound ${key}:`, error);
@@ -72,9 +90,7 @@ export class AudioManagerEnhanced {
     try {
       const player = this.soundPlayers.get(randomPop);
       if (player) {
-        await player.sound.setPositionAsync(0);
-        await player.sound.playAsync();
-        player.isPlaying = true;
+        await player.sound.replayAsync();
       }
     } catch (error) {
       console.error("Failed to play pop sound:", error);
@@ -90,9 +106,7 @@ export class AudioManagerEnhanced {
     try {
       const player = this.soundPlayers.get("combo");
       if (player) {
-        await player.sound.setPositionAsync(0);
-        await player.sound.playAsync();
-        player.isPlaying = true;
+        await player.sound.replayAsync();
       }
     } catch (error) {
       console.error("Failed to play combo sound:", error);
@@ -108,9 +122,7 @@ export class AudioManagerEnhanced {
     try {
       const player = this.soundPlayers.get("danger");
       if (player) {
-        await player.sound.setPositionAsync(0);
-        await player.sound.playAsync();
-        player.isPlaying = true;
+        await player.sound.replayAsync();
       }
     } catch (error) {
       console.error("Failed to play error sound:", error);
@@ -132,7 +144,7 @@ export class AudioManagerEnhanced {
 
     try {
       const player = this.soundPlayers.get("background");
-      if (player && !player.isPlaying) {
+      if (player) {
         await player.sound.setIsLoopingAsync(true);
         await player.sound.playAsync();
         player.isPlaying = true;
@@ -163,10 +175,8 @@ export class AudioManagerEnhanced {
   async stopAllSounds(): Promise<void> {
     try {
       for (const [, player] of this.soundPlayers) {
-        if (player.isPlaying) {
-          await player.sound.stopAsync();
-          player.isPlaying = false;
-        }
+        await player.sound.stopAsync();
+        player.isPlaying = false;
       }
     } catch (error) {
       console.error("Failed to stop all sounds:", error);
@@ -183,6 +193,7 @@ export class AudioManagerEnhanced {
         await player.sound.unloadAsync();
       }
       this.soundPlayers.clear();
+      this.initialized = false;
     } catch (error) {
       console.error("Failed to cleanup audio:", error);
     }
